@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>multi-wars-demo</artifactId>
+        <groupId>cn.chenhuanming</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>run-config</artifactId>
+
+
+    <!--配置各环境-->
+    <profiles>
+        <!--测试环境-->
+        <profile>
+            <id>test</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <environment>test</environment>
+                <finalName>/</finalName>
+            </properties>
+        </profile>
+        <!--生产环境-->
+        <profile>
+            <id>production</id>
+            <properties>
+                <environment>production</environment>
+                <finalName>/</finalName>
+            </properties>
+        </profile>
+    </profiles>
+
+    <!--这里添加需要打包的模块依赖，jetty会用maven的war插件进行打包，所以这里可以配置war plugin来进行更详细的打包配置-->
+    <dependencies>
+        <dependency>
+            <groupId>cn.chenhuanming</groupId>
+            <artifactId>main-module</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <type>war</type>
+        </dependency>
+        <dependency>
+            <groupId>cn.chenhuanming</groupId>
+            <artifactId>demo-war</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <type>war</type>
+        </dependency>
+    </dependencies>
+    <build>
+        <finalName>${finalName}</finalName>
+        <plugins>
+            <!--jetty插件运行，开发使用这个，用jrebel配置热部署就可以让class文件生效，mvn jetty:run-->
+            <plugin>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-maven-plugin</artifactId>
+                <version>9.4.0.v20161208</version>
+                <configuration>
+                    <!--让jetty自动reload，spring容器不需要重启-->
+                    <reload>automatic</reload>
+                    <scanIntervalSeconds>2</scanIntervalSeconds>
+                    <!--这里让jetty检查静态文件的修改-->
+                    <webApp>
+                        <!--<contextPath>/${project.build.finalName}</contextPath>-->
+                        <resourceBases>
+                            <directory>${basedir}/../main-module/src/main/webapp</directory>
+                            <directory>${basedir}/../demo-war/src/main/webapp</directory>
+                            <directory>${basedir}/../main-module/src/main/resources</directory>
+                            <directory>${basedir}/../demo-war/src/main/resources</directory>
+                        </resourceBases>
+                    </webApp>
+                    <httpConnector>
+                        <port>8081</port>
+                    </httpConnector>
+                    <scanTargets>
+                        <scanTarget>${basedir}/../main-module/target/classess</scanTarget>
+                        <scanTarget>${basedir}/../demo-war/target/classess</scanTarget>
+                    </scanTargets>
+                </configuration>
+            </plugin>
+            <!--jerebel maven 插件，用于生成jrebel.xml-->
+            <plugin>
+                <groupId>org.zeroturnaround</groupId>
+                <artifactId>jrebel-maven-plugin</artifactId>
+                <version>1.1.5</version>
+                <executions>
+                    <execution>
+                        <id>generate-rebel-xml</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!-- 指定生成的jrebel.xml放在哪里， 要求放在web应用的 classpath下-->
+                    <rebelXmlDirectory>${basedir}/src/main/webapp/WEB-INF/classes</rebelXmlDirectory>
+                </configuration>
+            </plugin>
+            <!--发布到本地tomcat,确保tomcat已正确配置以及执行前打开 -->
+            <!--<plugin>-->
+            <!--<groupId>org.apache.tomcat.maven</groupId>-->
+            <!--<artifactId>tomcat7-maven-plugin</artifactId>-->
+            <!--<version>2.2</version>-->
+            <!--<configuration>-->
+            <!--<url>http://localhost:8080/manager/text</url>-->
+            <!--<server>tomcat</server>-->
+            <!--<username>admin</username>-->
+            <!--<password>admin</password>-->
+            <!--<path>/${project.build.finalName}</path>-->
+            <!--</configuration>-->
+            <!--</plugin>-->
+        </plugins>
+
+        <!--根据环境打包相关配置文件-->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>*.xml</include>
+                    <include>*.properties</include>
+                </includes>
+                <excludes>
+                    <exclude>test/*</exclude>
+                    <exclude>production/*</exclude>
+                </excludes>
+            </resource>
+            <!--让maven扫描修改web.xml的${environment}，但是jrebel还是读了原文件，开发时还是手动改下web.xml-->
+            <resource>
+                <directory>src/main/resources/${environment}</directory>
+            </resource>
+        </resources>
+    </build>
+</project>
